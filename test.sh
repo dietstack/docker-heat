@@ -1,45 +1,46 @@
 #!/bin/bash
-# Integration test for keystone service
-# Test runs mysql,memcached and keystone container and checks whether keystone is running on public and admin ports
+# Integration test for heat service
+# Test runs mysql,memcached,keystone and heat container and checks whether heat is running on public and admin ports
 
 GIT_REPO=172.27.10.10
 RELEASE_REPO=172.27.9.130
-ADMIN_TOKEN=veryS3cr3t
 CONT_PREFIX=test
 BRANCH=master
 
 . lib/functions.sh
 
+http_proxy_args="-e http_proxy=${http_proxy:-} -e https_proxy=${https_proxy:-} -e no_proxy=${no_proxy:-}"
+
 cleanup() {
     echo "Clean up ..."
-
     docker stop ${CONT_PREFIX}_galera
+    docker stop ${CONT_PREFIX}_rabbitmq
     docker stop ${CONT_PREFIX}_memcached
     docker stop ${CONT_PREFIX}_keystone
+    docker stop ${CONT_PREFIX}_heat
 
     docker rm ${CONT_PREFIX}_galera
+    docker rm ${CONT_PREFIX}_rabbitmq
     docker rm ${CONT_PREFIX}_memcached
     docker rm ${CONT_PREFIX}_keystone
+    docker rm ${CONT_PREFIX}_heat
 }
 
 cleanup
 
-# turn off git ssl verification as we use self signed certs
-git config --global http.sslVerify false
-
 ##### Download/Build containers
 
-# pull galera docker image
+# run galera docker image
 get_docker_image_from_release galera http://${RELEASE_REPO}/docker-galera/${BRANCH} latest
 
-# pull osmaster docker image
-get_docker_image_from_release osmaster http://${RELEASE_REPO}/docker-osmaster/${BRANCH} latest
+# run rabbitmq docker image
+get_docker_image_from_release rabbitmq http://${RELEASE_REPO}/docker-rabbitmq/${BRANCH} latest
+
+# pull keystone image
+get_docker_image_from_release keystone http://${RELEASE_REPO}/docker-keystone/${BRANCH} latest
 
 # pull osadmin docker image
 get_docker_image_from_release osadmin http://${RELEASE_REPO}/docker-osadmin/${BRANCH} latest
-
-# build keystone docker image
-./build.sh --no-cache
 
 ##### Start Containers
 
@@ -52,62 +53,82 @@ wait_for_port 3306 30
 echo "Starting Memcached node (tokens caching) ..."
 docker run -d --net=host -e DEBUG= --name ${CONT_PREFIX}_memcached memcached
 
+echo "Starting RabbitMQ container ..."
+docker run -d --net=host -e DEBUG= --name ${CONT_PREFIX}_rabbitmq rabbitmq
+
+# build heat container for current sources
+./build.sh
+
 sleep 10
 
-# create database for keystone
+# create databases
 create_db_osadmin keystone keystone veryS3cr3t veryS3cr3t
+create_db_osadmin heat heat veryS3cr3t veryS3cr3t
 
 echo "Starting keystone container"
-#KEYSTONE_TAG=$(docker images | grep -w keystone | head -n 1 | awk '{print $2}')
-docker run -d --net=host -e DEBUG="true" -e DB_SYNC="true" --name ${CONT_PREFIX}_keystone keystone:latest
+docker run -d --net=host \
+           -e DEBUG="true" \
+           -e DB_SYNC="true" \
+           $http_proxy_args \
+           --name ${CONT_PREFIX}_keystone keystone:latest
 
-##### TESTS #####
+echo "Wait till keystone is running ."
 
 wait_for_port 5000 30
 ret=$?
 if [ $ret -ne 0 ]; then
-    echo "Error: Port 5000 not bounded!"
+    echo "Error: Port 5000 (Keystone) not bounded!"
     exit $ret
 fi
 
 wait_for_port 35357 30
 ret=$?
 if [ $ret -ne 0 ]; then
-    echo "Error: Port 35357 not bounded!"
+    echo "Error: Port 35357 (Keystone Admin) not bounded!"
     exit $ret
 fi
 
-# test whether API is really working
-# we try to create service over identity API v3
+echo "Starting heat container"
+docker run -d --net=host \
+           -e DEBUG="true" \
+           -e DB_SYNC="true" \
+           $http_proxy_args \
+           --name ${CONT_PREFIX}_heat heat:latest
 
-# Get API call
-URL="http://127.0.0.1:5000/"
-echo "Test GET ${URL}"
-OUT=$(curl -s "${URL}")
-echo ${OUT}
-if [[ ${OUT} != *"versions"* ]]; then
-    echo "TEST ERROR !!!"
-    exit 1
+
+##### TESTS #####
+
+wait_for_port 8004 30
+ret=$?
+if [ $ret -ne 0 ]; then
+    echo "Error: Port 8004 (Heat Orchestration) not bounded!"
+    exit $ret
 fi
 
-# POST API call - create service
-URL="http://127.0.0.1:35357/v3/services"
-echo "Creating service keystone ..."
-OUT=$(curl -s -X POST -H "X-Auth-Token:${ADMIN_TOKEN}" -H "Content-Type: application/json" -d '{"service": {"type": "identity", "name": "keystone", "description": "Identity"}}' "${URL}")
-echo ${OUT}
-
-# Test whether service was created
-URL="http://127.0.0.1:5000/v3/services"
-OUT=$(curl -s -H "X-Auth-Token:${ADMIN_TOKEN}" "${URL}")
-echo ${OUT}
-if [[ ${OUT} != *"services"* || ${OUT} != *"keystone"* ]]; then
-    echo "TEST ERROR !!!"
-    exit 1
+wait_for_port 8000 30
+ret=$?
+if [ $ret -ne 0 ]; then
+    echo "Error: Port 8000 (Heat cloudformation) not bounded!"
+    exit $ret
 fi
+
+
+
+# bootstrap openstack keystone
+
+docker run --rm --net=host $http_proxy_args \
+                           osadmin /bin/bash -c ". /app/tokenrc; \
+                                                 bash -x /app/bootstrap.sh"
+
+echo "Testing whether openstack stack list is successful..."
+docker run --rm --net=host $http_proxy_args \
+                           osadmin /bin/bash -c ". /app/adminrc; \
+                                                 openstack stack list"
+
+echo "Return code $?"
 
 echo "======== Success :) ========="
 
 if [[ "$1" != "noclean" ]]; then
     cleanup
 fi
-

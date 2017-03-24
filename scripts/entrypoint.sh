@@ -34,7 +34,7 @@ LOG_MESSAGE="Docker start script:"
 OVERRIDE=0
 CONF_DIR="/etc/heat"
 OVERRIDE_DIR="/heat-override"
-CONF_FILE="heat.conf"
+CONF_FILES=(`cd $CONF_DIR; find . -maxdepth 3 -type f`)
 
 # check if external configs are provided
 echo "$LOG_MESSAGE Checking if external config is provided.."
@@ -70,5 +70,5 @@ fi
 
 [[ $DB_SYNC ]] && echo "Running db_sync ..." && heat-manage db_sync
 
-echo "$LOG_MESSAGE starting keystone"
+echo "$LOG_MESSAGE starting heat"
 exec "$@"

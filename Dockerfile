@@ -2,8 +2,6 @@ FROM osmaster
 
 MAINTAINER Kamil Madac (kamil.madac@t-systems.sk)
 
-ENV http_proxy="http://172.27.10.114:3128" https_proxy="http://172.27.10.114:3128" no_proxy="locahost,127.0.0.1"
-
 # Source codes to download
 ENV repo="https://github.com/openstack/heat" branch="stable/newton" commit=""
 
@@ -50,8 +48,8 @@ COPY scripts /app
 WORKDIR /app
 RUN chmod +x /app/*
 
-#ENTRYPOINT ["/app/entrypoint.sh"]
+ENTRYPOINT ["/app/entrypoint.sh"]
 
 # Define default command.
-#CMD ["/usr/local/bin/supervisord", "-c", "/etc/supervisord.conf"]
+CMD ["/usr/local/bin/supervisord", "-c", "/etc/supervisord.conf"]
 
