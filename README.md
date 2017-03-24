@@ -1,13 +1,13 @@
-## Keystone docker
+## Heat docker
 
 ### Using
 
 ```
-git clone git@172.27.10.10:openstack/docker-keystone.git
-cd docker-keystone
-docker build -t keystone .
+git clone git@172.27.10.10:openstack/docker-heat.git
+cd docker-heat
+./build
 ```
-Result will be keystone image in local image registry.
+Result will be heat image in local image registry.
 
 # Development
 There is a script called `test.sh`. This can be used either for development or testing. By default, script runs couple of docker containers (galera, memcached, keystone), make tests and removes containers. This is used for testing purposes (also in CI).
