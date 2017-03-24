@@ -1,5 +1,5 @@
 variables:
-  APP_NAME: keystone
+  APP_NAME: heat
 
 before_script:
     - docker ps -qa | xargs docker stop || true
