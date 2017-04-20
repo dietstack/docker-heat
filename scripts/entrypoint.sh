@@ -23,6 +23,10 @@ SERVICE_PASSWORD=${SERVICE_PASSWORD:-veryS3cr3t}
 
 KEYSTONE_HOST=${KEYSTONE_HOST:-127.0.0.1}
 RABBITMQ_HOST=${RABBITMQ_HOST:-127.0.0.1}
+RABBITMQ_PORT=${RABBITMQ_PORT:-5672}
+RABBITMQ_USER=${RABBITMQ_USER:-openstack}
+RABBITMQ_PASSWORD=${RABBITMQ_PASSWORD:-veryS3cr3t}
+
 MEMCACHED_SERVERS=${MEMCACHED_SERVERS:-127.0.0.1:11211}
 
 INSECURE=${INSECURE:-true}
@@ -59,6 +63,9 @@ if [[ $OVERRIDE -eq 0 ]]; then
                 sed -i "s/\b_DEBUG_OPT_\b/$DEBUG_OPT/" $CONF_DIR/$CONF
                 sed -i "s/\b_KEYSTONE_HOST_\b/$KEYSTONE_HOST/" $CONF_DIR/$CONF
                 sed -i "s/\b_RABBITMQ_HOST_\b/$RABBITMQ_HOST/" $CONF_DIR/$CONF
+                sed -i "s/\b_RABBITMQ_PORT_\b/$RABBITMQ_PORT/" $CONF_DIR/$CONF
+                sed -i "s/\b_RABBITMQ_USER_\b/$RABBITMQ_USER/" $CONF_DIR/$CONF
+                sed -i "s/\b_RABBITMQ_PASSWORD_\b/$RABBITMQ_PASSWORD/" $CONF_DIR/$CONF
                 sed -i "s/\b_MEMCACHED_SERVERS_\b/$MEMCACHED_SERVERS/" $CONF_DIR/$CONF
                 sed -i "s/\b_INSECURE_\b/$INSECURE/" $CONF_DIR/$CONF
                 sed -i "s/\b_HEAT_HOST_\b/$HEAT_HOST/" $CONF_DIR/$CONF

@@ -56,10 +56,14 @@ docker run -d --net=host -e DEBUG= --name ${CONT_PREFIX}_memcached memcached
 echo "Starting RabbitMQ container ..."
 docker run -d --net=host -e DEBUG= --name ${CONT_PREFIX}_rabbitmq rabbitmq
 
+wait_for_port 5672 120
+
+# create openstack user in rabbitmq
+docker exec ${CONT_PREFIX}_rabbitmq rabbitmqctl add_user openstack veryS3cr3t
+docker exec ${CONT_PREFIX}_rabbitmq rabbitmqctl set_permissions openstack '.*' '.*' '.*'
+
 # build heat container for current sources
 ./build.sh
-
-sleep 10
 
 # create databases
 create_db_osadmin keystone keystone veryS3cr3t veryS3cr3t
