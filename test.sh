@@ -105,8 +105,6 @@ if [ $ret -ne 0 ]; then
     exit $ret
 fi
 
-
-
 # bootstrap openstack keystone
 
 docker run --rm --net=host $http_proxy_args \
