@@ -4,10 +4,9 @@
 # From heat.api.middleware.ssl
 #
 
-# The HTTP Header that will be used to determine which the original request
+# The HTTP Header that will be used to determine what the original request
 # protocol scheme was, even if it was removed by an SSL terminator proxy.
 # (string value)
-# Deprecated group/name - [DEFAULT]/secure_proxy_ssl_header
 #secure_proxy_ssl_header = X-Forwarded-Proto
 
 #
@@ -16,7 +15,7 @@
 
 # Name of the engine node. This can be an opaque identifier. It is not
 # necessarily a hostname, FQDN, or IP address. (string value)
-#host = 61f287f21973
+#host = 5bc6f74df023
 
 # List of directories to search for plug-ins. (list value)
 #plugin_dirs = /usr/lib64/heat,/usr/lib/heat,/usr/local/lib/heat,/usr/local/lib64/heat
@@ -27,8 +26,13 @@
 # The directory to search for template files. (string value)
 #template_dir = /etc/heat/templates
 
-# Select deferred auth method, stored password or trusts. (string value)
+# DEPRECATED: Select deferred auth method, stored password or trusts. (string
+# value)
 # Allowed values: password, trusts
+# This option is deprecated for removal since 9.0.0.
+# Its value may be silently ignored in the future.
+# Reason: Stored password based deferred auth is broken when used with keystone
+# v3 and is not supported.
 #deferred_auth_method = trusts
 
 # Allow reauthentication on token expiry, such that long-running tasks may
@@ -36,10 +40,6 @@
 # value)
 # Allowed values: '', trusts
 #reauthentication_auth_method =
-
-# Gap, in seconds, to determine whether the given token is about to expire.
-# (integer value)
-#stale_token_duration = 30
 
 # Subset of trustor roles to be delegated to heat. If left unset, all roles of
 # a user will be delegated to heat when creating a stack. (list value)
@@ -70,14 +70,16 @@
 # Minimum value: 1
 #max_interface_check_attempts = 10
 
-# Controls how many events will be pruned whenever a stack's events exceed
-# max_events_per_stack. Set this lower to keep more events at the expense of
-# more frequent purges. (integer value)
-#event_purge_batch_size = 10
+# Controls how many events will be pruned whenever a stack's events are purged.
+# Set this lower to keep more events at the expense of more frequent purges.
+# (integer value)
+# Minimum value: 1
+#event_purge_batch_size = 200
 
-# Maximum events that will be available per stack. Older events will be deleted
-# when this is reached. Set to 0 for unlimited events per stack. (integer
-# value)
+# Rough number of maximum events that will be available per stack. Actual
+# number of events can be a bit higher since purge checks take place randomly
+# 200/event_purge_batch_size percent of the time. Older events are deleted when
+# events are purged. Set to 0 for unlimited events per stack. (integer value)
 #max_events_per_stack = 1000
 
 # Timeout in seconds for stack action (ie. create or update). (integer value)
@@ -129,6 +131,15 @@
 # queue to be signaled using the provided keystone credentials. (string value)
 # Allowed values: CFN_SIGNAL, TEMP_URL_SIGNAL, HEAT_SIGNAL, ZAQAR_SIGNAL
 #default_deployment_signal_transport = CFN_SIGNAL
+
+# Template default for how the user_data should be formatted for the server.
+# For HEAT_CFNTOOLS, the user_data is bundled as part of the heat-cfntools
+# cloud-init boot configuration data. For RAW the user_data is passed to Nova
+# unmodified. For SOFTWARE_CONFIG user_data is bundled as part of the software
+# config data, and metadata is derived from any associated SoftwareDeployment
+# resources. (string value)
+# Allowed values: HEAT_CFNTOOLS, RAW, SOFTWARE_CONFIG
+#default_user_data_format = HEAT_CFNTOOLS
 
 # Stacks containing these tag names will be hidden. Multiple tags should be
 # given in a comma-delimited list (eg. hidden_stack_tags=hide_me,me_too). (list
@@ -232,10 +243,17 @@
 #cloud_backend = heat.engine.clients.OpenStackClients
 
 #
+# From heat.engine.clients.os.keystone.heat_keystoneclient
+#
+
+# Fully qualified class name to use as a keystone backend. (string value)
+#keystone_backend = heat.engine.clients.os.keystone.heat_keystoneclient.KsClientWrapper
+
+#
 # From heat.engine.notification
 #
 
-# Default notification level for outgoing notifications. (string value)
+# Default notification level for outgoingnotifications. (string value)
 #default_notification_level = INFO
 
 # Default publisher_id for outgoing notifications. (string value)
@@ -256,12 +274,6 @@
 # INFO level. (boolean value)
 # Note: This option can be changed without restarting.
 #debug = false
-
-# DEPRECATED: If set to false, the logging level will be set to WARNING instead
-# of the default INFO level. (boolean value)
-# This option is deprecated for removal.
-# Its value may be silently ignored in the future.
-#verbose = true
 
 # The name of a logging configuration file. This file is appended to any
 # existing logging configuration files. For details about logging configuration
@@ -301,13 +313,19 @@
 # is set. (boolean value)
 #use_syslog = false
 
+# Enable journald for logging. If running in a systemd environment you may wish
+# to enable journal support. Doing so will use the journal native protocol
+# which includes structured metadata in addition to log messages.This option is
+# ignored if log_config_append is set. (boolean value)
+#use_journal = false
+
 # Syslog facility to receive log lines. This option is ignored if
 # log_config_append is set. (string value)
 #syslog_log_facility = LOG_USER
 
 # Log output to standard error. This option is ignored if log_config_append is
 # set. (boolean value)
-#use_stderr = true
+#use_stderr = false
 
 # Format string to use for log messages with context. (string value)
 #logging_context_format_string = %(asctime)s.%(msecs)03d %(process)d %(levelname)s %(name)s [%(request_id)s %(user_identity)s] %(instance)s%(message)s
@@ -329,7 +347,7 @@
 
 # List of package logging levels in logger=LEVEL pairs. This option is ignored
 # if log_config_append is set. (list value)
-#default_log_levels = amqp=WARN,amqplib=WARN,boto=WARN,qpid=WARN,sqlalchemy=WARN,suds=INFO,oslo.messaging=INFO,iso8601=WARN,requests.packages.urllib3.connectionpool=WARN,urllib3.connectionpool=WARN,websocket=WARN,requests.packages.urllib3.util.retry=WARN,urllib3.util.retry=WARN,keystonemiddleware=WARN,routes.middleware=WARN,stevedore=WARN,taskflow=WARN,keystoneauth=WARN,oslo.cache=INFO,dogpile.core.dogpile=INFO
+#default_log_levels = amqp=WARN,amqplib=WARN,boto=WARN,qpid=WARN,sqlalchemy=WARN,suds=INFO,oslo.messaging=INFO,oslo_messaging=INFO,iso8601=WARN,requests.packages.urllib3.connectionpool=WARN,urllib3.connectionpool=WARN,websocket=WARN,requests.packages.urllib3.util.retry=WARN,urllib3.util.retry=WARN,keystonemiddleware=WARN,routes.middleware=WARN,stevedore=WARN,taskflow=WARN,keystoneauth=WARN,oslo.cache=INFO,dogpile.core.dogpile=INFO
 
 # Enables or disables publication of error events. (boolean value)
 #publish_errors = false
@@ -342,6 +360,18 @@
 # value)
 #instance_uuid_format = "[instance: %(uuid)s] "
 
+# Interval, number of seconds, of log rate limiting. (integer value)
+#rate_limit_interval = 0
+
+# Maximum number of logged messages per rate_limit_interval. (integer value)
+#rate_limit_burst = 0
+
+# Log level name used by rate limiting: CRITICAL, ERROR, INFO, WARNING, DEBUG
+# or empty string. Logs with level greater or equal to rate_limit_except_level
+# are not filtered. An empty string means that all levels are filtered. (string
+# value)
+#rate_limit_except_level = CRITICAL
+
 # Enables or disables fatal status of deprecations. (boolean value)
 #fatal_deprecations = false
 
@@ -350,7 +380,6 @@
 #
 
 # Size of RPC connection pool. (integer value)
-# Deprecated group/name - [DEFAULT]/rpc_conn_pool_size
 #rpc_conn_pool_size = 30
 
 # The pool size limit for connections expiration policy (integer value)
@@ -361,93 +390,145 @@
 
 # ZeroMQ bind address. Should be a wildcard (*), an ethernet interface, or IP.
 # The "host" option should point or resolve to this address. (string value)
-# Deprecated group/name - [DEFAULT]/rpc_zmq_bind_address
 #rpc_zmq_bind_address = *
 
 # MatchMaker driver. (string value)
-# Allowed values: redis, dummy
-# Deprecated group/name - [DEFAULT]/rpc_zmq_matchmaker
+# Allowed values: redis, sentinel, dummy
 #rpc_zmq_matchmaker = redis
 
 # Number of ZeroMQ contexts, defaults to 1. (integer value)
-# Deprecated group/name - [DEFAULT]/rpc_zmq_contexts
 #rpc_zmq_contexts = 1
 
 # Maximum number of ingress messages to locally buffer per topic. Default is
 # unlimited. (integer value)
-# Deprecated group/name - [DEFAULT]/rpc_zmq_topic_backlog
 #rpc_zmq_topic_backlog = <None>
 
 # Directory for holding IPC sockets. (string value)
-# Deprecated group/name - [DEFAULT]/rpc_zmq_ipc_dir
 #rpc_zmq_ipc_dir = /var/run/openstack
 
 # Name of this node. Must be a valid hostname, FQDN, or IP address. Must match
 # "host" option, if running Nova. (string value)
-# Deprecated group/name - [DEFAULT]/rpc_zmq_host
 #rpc_zmq_host = localhost
 
-# Seconds to wait before a cast expires (TTL). The default value of -1
-# specifies an infinite linger period. The value of 0 specifies no linger
-# period. Pending messages shall be discarded immediately when the socket is
-# closed. Only supported by impl_zmq. (integer value)
+# Number of seconds to wait before all pending messages will be sent after
+# closing a socket. The default value of -1 specifies an infinite linger
+# period. The value of 0 specifies no linger period. Pending messages shall be
+# discarded immediately when the socket is closed. Positive values specify an
+# upper bound for the linger period. (integer value)
 # Deprecated group/name - [DEFAULT]/rpc_cast_timeout
-#rpc_cast_timeout = -1
+#zmq_linger = -1
 
 # The default number of seconds that poll should wait. Poll raises timeout
 # exception when timeout expired. (integer value)
-# Deprecated group/name - [DEFAULT]/rpc_poll_timeout
 #rpc_poll_timeout = 1
 
 # Expiration timeout in seconds of a name service record about existing target
 # ( < 0 means no timeout). (integer value)
-# Deprecated group/name - [DEFAULT]/zmq_target_expire
 #zmq_target_expire = 300
 
 # Update period in seconds of a name service record about existing target.
 # (integer value)
-# Deprecated group/name - [DEFAULT]/zmq_target_update
 #zmq_target_update = 180
 
 # Use PUB/SUB pattern for fanout methods. PUB/SUB always uses proxy. (boolean
 # value)
-# Deprecated group/name - [DEFAULT]/use_pub_sub
-#use_pub_sub = true
+#use_pub_sub = false
 
 # Use ROUTER remote proxy. (boolean value)
-# Deprecated group/name - [DEFAULT]/use_router_proxy
-#use_router_proxy = true
+#use_router_proxy = false
+
+# This option makes direct connections dynamic or static. It makes sense only
+# with use_router_proxy=False which means to use direct connections for direct
+# message types (ignored otherwise). (boolean value)
+#use_dynamic_connections = false
+
+# How many additional connections to a host will be made for failover reasons.
+# This option is actual only in dynamic connections mode. (integer value)
+#zmq_failover_connections = 2
 
 # Minimal port number for random ports range. (port value)
 # Minimum value: 0
 # Maximum value: 65535
-# Deprecated group/name - [DEFAULT]/rpc_zmq_min_port
 #rpc_zmq_min_port = 49153
 
 # Maximal port number for random ports range. (integer value)
 # Minimum value: 1
 # Maximum value: 65536
-# Deprecated group/name - [DEFAULT]/rpc_zmq_max_port
 #rpc_zmq_max_port = 65536
 
 # Number of retries to find free port number before fail with ZMQBindError.
 # (integer value)
-# Deprecated group/name - [DEFAULT]/rpc_zmq_bind_port_retries
 #rpc_zmq_bind_port_retries = 100
 
 # Default serialization mechanism for serializing/deserializing
 # outgoing/incoming messages (string value)
 # Allowed values: json, msgpack
-# Deprecated group/name - [DEFAULT]/rpc_zmq_serialization
 #rpc_zmq_serialization = json
 
 # This option configures round-robin mode in zmq socket. True means not keeping
 # a queue when server side disconnects. False means to keep queue and messages
 # even if server is disconnected, when the server appears we send all
 # accumulated messages to it. (boolean value)
-#zmq_immediate = false
+#zmq_immediate = true
 
-# Size of executor thread pool. (integer value)
+# Enable/disable TCP keepalive (KA) mechanism. The default value of -1 (or any
+# other negative value) means to skip any overrides and leave it to OS default;
+# 0 and 1 (or any other positive value) mean to disable and enable the option
+# respectively. (integer value)
+#zmq_tcp_keepalive = -1
+
+# The duration between two keepalive transmissions in idle condition. The unit
+# is platform dependent, for example, seconds in Linux, milliseconds in Windows
+# etc. The default value of -1 (or any other negative value and 0) means to
+# skip any overrides and leave it to OS default. (integer value)
+#zmq_tcp_keepalive_idle = -1
+
+# The number of retransmissions to be carried out before declaring that remote
+# end is not available. The default value of -1 (or any other negative value
+# and 0) means to skip any overrides and leave it to OS default. (integer
+# value)
+#zmq_tcp_keepalive_cnt = -1
+
+# The duration between two successive keepalive retransmissions, if
+# acknowledgement to the previous keepalive transmission is not received. The
+# unit is platform dependent, for example, seconds in Linux, milliseconds in
+# Windows etc. The default value of -1 (or any other negative value and 0)
+# means to skip any overrides and leave it to OS default. (integer value)
+#zmq_tcp_keepalive_intvl = -1
+
+# Maximum number of (green) threads to work concurrently. (integer value)
+#rpc_thread_pool_size = 100
+
+# Expiration timeout in seconds of a sent/received message after which it is
+# not tracked anymore by a client/server. (integer value)
+#rpc_message_ttl = 300
+
+# Wait for message acknowledgements from receivers. This mechanism works only
+# via proxy without PUB/SUB. (boolean value)
+#rpc_use_acks = false
+
+# Number of seconds to wait for an ack from a cast/call. After each retry
+# attempt this timeout is multiplied by some specified multiplier. (integer
+# value)
+#rpc_ack_timeout_base = 15
+
+# Number to multiply base ack timeout by after each retry attempt. (integer
+# value)
+#rpc_ack_timeout_multiplier = 2
+
+# Default number of message sending attempts in case of any problems occurred:
+# positive value N means at most N retries, 0 means no retries, None or -1 (or
+# any other negative values) mean to retry forever. This option is used only if
+# acknowledgments are enabled. (integer value)
+#rpc_retry_attempts = 3
+
+# List of publisher hosts SubConsumer can subscribe on. This option has higher
+# priority then the default publishers list taken from the matchmaker. (list
+# value)
+#subscribe_on =
+
+# Size of executor thread pool when executor is threading or eventlet. (integer
+# value)
 # Deprecated group/name - [DEFAULT]/rpc_thread_pool_size
 #executor_thread_pool_size = 64
 
@@ -1020,51 +1101,13 @@
 #allow_headers = X-Auth-Token,X-Identity-Status,X-Roles,X-Service-Catalog,X-User-Id,X-Tenant-Id,X-OpenStack-Request-ID
 
 
-[cors.subdomain]
-
-#
-# From oslo.middleware
-#
-
-# Indicate whether this resource may be shared with the domain received in the
-# requests "origin" header. Format: "<protocol>://<host>[:<port>]", no trailing
-# slash. Example: https://horizon.example.com (list value)
-#allowed_origin = <None>
-
-# Indicate that the actual request can include user credentials (boolean value)
-#allow_credentials = true
-
-# Indicate which headers are safe to expose to the API. Defaults to HTTP Simple
-# Headers. (list value)
-#expose_headers = X-Auth-Token,X-Subject-Token,X-Service-Token,X-OpenStack-Request-ID
-
-# Maximum cache age of CORS preflight requests. (integer value)
-#max_age = 3600
-
-# Indicate which methods can be used during the actual request. (list value)
-#allow_methods = GET,PUT,POST,DELETE,PATCH
-
-# Indicate which header field names may be used during the actual request.
-# (list value)
-#allow_headers = X-Auth-Token,X-Identity-Status,X-Roles,X-Service-Catalog,X-User-Id,X-Tenant-Id,X-OpenStack-Request-ID
-
-
 [database]
 
 #
 # From oslo.db
 #
 
-# DEPRECATED: The file name to use with SQLite. (string value)
-# Deprecated group/name - [DEFAULT]/sqlite_db
-# This option is deprecated for removal.
-# Its value may be silently ignored in the future.
-# Reason: Should use config option connection or slave_connection to connect
-# the database.
-#sqlite_db = oslo.sqlite
-
 # If True, SQLite uses synchronous mode. (boolean value)
-# Deprecated group/name - [DEFAULT]/sqlite_synchronous
 #sqlite_synchronous = true
 
 # The back end to use for the database. (string value)
@@ -1087,6 +1130,10 @@
 # by the server configuration, set this to no value. Example: mysql_sql_mode=
 # (string value)
 #mysql_sql_mode = TRADITIONAL
+
+# If True, transparently enables support for handling MySQL Cluster (NDB).
+# (boolean value)
+#mysql_enable_ndb = false
 
 # Timeout before idle SQL connections are reaped. (integer value)
 # Deprecated group/name - [DEFAULT]/sql_idle_timeout
@@ -1200,6 +1247,34 @@
 #client_socket_timeout = 900
 
 
+[healthcheck]
+
+#
+# From oslo.middleware
+#
+
+# DEPRECATED: The path to respond to healtcheck requests on. (string value)
+# This option is deprecated for removal.
+# Its value may be silently ignored in the future.
+#path = /healthcheck
+
+# Show more detailed information as part of the response (boolean value)
+#detailed = false
+
+# Additional backends that can perform health checks and report that
+# information back as part of a request. (list value)
+#backends =
+
+# Check the presence of a file to determine if an application is running on a
+# port. Used by DisableByFileHealthcheck plugin. (string value)
+#disable_by_file_path = <None>
+
+# Check the presence of a file based on a port to determine if an application
+# is running on a port. Expects a "port:path" list of strings. Used by
+# DisableByFilesPortsHealthcheck plugin. (list value)
+#disable_by_file_paths =
+
+
 [heat_api]
 
 #
@@ -1208,30 +1283,25 @@
 
 # Address to bind the server. Useful when selecting a particular network
 # interface. (IP address value)
-# Deprecated group/name - [DEFAULT]/bind_host
 #bind_host = 0.0.0.0
 
 # The port on which the server will listen. (port value)
 # Minimum value: 0
 # Maximum value: 65535
-# Deprecated group/name - [DEFAULT]/bind_port
 #bind_port = 8004
 
 # Number of backlog requests to configure the socket with. (integer value)
-# Deprecated group/name - [DEFAULT]/backlog
 #backlog = 4096
 
 # Location of the SSL certificate file to use for SSL mode. (string value)
-# Deprecated group/name - [DEFAULT]/cert_file
 #cert_file = <None>
 
 # Location of the SSL key file to use for enabling SSL mode. (string value)
-# Deprecated group/name - [DEFAULT]/key_file
 #key_file = <None>
 
 # Number of workers for Heat service. Default value 0 means, that service will
 # start number of workers equal number of cores on server. (integer value)
-# Deprecated group/name - [DEFAULT]/workers
+# Minimum value: 0
 #workers = 0
 
 # Maximum line size of message headers to be accepted. max_header_line may need
@@ -1253,29 +1323,24 @@
 
 # Address to bind the server. Useful when selecting a particular network
 # interface. (IP address value)
-# Deprecated group/name - [DEFAULT]/bind_host
 #bind_host = 0.0.0.0
 
 # The port on which the server will listen. (port value)
 # Minimum value: 0
 # Maximum value: 65535
-# Deprecated group/name - [DEFAULT]/bind_port
 #bind_port = 8000
 
 # Number of backlog requests to configure the socket with. (integer value)
-# Deprecated group/name - [DEFAULT]/backlog
 #backlog = 4096
 
 # Location of the SSL certificate file to use for SSL mode. (string value)
-# Deprecated group/name - [DEFAULT]/cert_file
 #cert_file = <None>
 
 # Location of the SSL key file to use for enabling SSL mode. (string value)
-# Deprecated group/name - [DEFAULT]/key_file
 #key_file = <None>
 
 # Number of workers for Heat service. (integer value)
-# Deprecated group/name - [DEFAULT]/workers
+# Minimum value: 0
 #workers = 1
 
 # Maximum line size of message headers to be accepted. max_header_line may need
@@ -1297,29 +1362,24 @@
 
 # Address to bind the server. Useful when selecting a particular network
 # interface. (IP address value)
-# Deprecated group/name - [DEFAULT]/bind_host
 #bind_host = 0.0.0.0
 
 # The port on which the server will listen. (port value)
 # Minimum value: 0
 # Maximum value: 65535
-# Deprecated group/name - [DEFAULT]/bind_port
 #bind_port = 8003
 
 # Number of backlog requests to configure the socket with. (integer value)
-# Deprecated group/name - [DEFAULT]/backlog
 #backlog = 4096
 
 # Location of the SSL certificate file to use for SSL mode. (string value)
-# Deprecated group/name - [DEFAULT]/cert_file
 #cert_file = <None>
 
 # Location of the SSL key file to use for enabling SSL mode. (string value)
-# Deprecated group/name - [DEFAULT]/key_file
 #key_file = <None>
 
 # Number of workers for Heat service. (integer value)
-# Deprecated group/name - [DEFAULT]/workers
+# Minimum value: 0
 #workers = 1
 
 # Maximum line size of message headers to be accepted. max_header_line may need
@@ -1342,10 +1402,10 @@
 # Complete "public" Identity API endpoint. This endpoint should not be an
 # "admin" endpoint, as it should be accessible by all end users.
 # Unauthenticated clients are redirected to this endpoint to authenticate.
-# Although this endpoint should  ideally be unversioned, client support in the
-# wild varies.  If you're using a versioned v2 endpoint here, then this  should
-# *not* be the same endpoint the service user utilizes  for validating tokens,
-# because normal end users may not be  able to reach that endpoint. (string
+# Although this endpoint should ideally be unversioned, client support in the
+# wild varies. If you're using a versioned v2 endpoint here, then this should
+# *not* be the same endpoint the service user utilizes for validating tokens,
+# because normal end users may not be able to reach that endpoint. (string
 # value)
 #auth_uri = <None>
 
@@ -1386,7 +1446,12 @@
 # The region in which the identity server can be found. (string value)
 #region_name = <None>
 
-# Directory used to cache files related to PKI tokens. (string value)
+# DEPRECATED: Directory used to cache files related to PKI tokens. This option
+# has been deprecated in the Ocata release and will be removed in the P
+# release. (string value)
+# This option is deprecated for removal since Ocata.
+# Its value may be silently ignored in the future.
+# Reason: PKI token format is no longer supported.
 #signing_dir = <None>
 
 # Optionally specify a list of memcached server(s) to use for caching. If left
@@ -1399,10 +1464,14 @@
 # to -1 to disable caching completely. (integer value)
 #token_cache_time = 300
 
-# Determines the frequency at which the list of revoked tokens is retrieved
-# from the Identity service (in seconds). A high number of revocation events
-# combined with a low cache duration may significantly reduce performance. Only
-# valid for PKI tokens. (integer value)
+# DEPRECATED: Determines the frequency at which the list of revoked tokens is
+# retrieved from the Identity service (in seconds). A high number of revocation
+# events combined with a low cache duration may significantly reduce
+# performance. Only valid for PKI tokens. This option has been deprecated in
+# the Ocata release and will be removed in the P release. (integer value)
+# This option is deprecated for removal since Ocata.
+# Its value may be silently ignored in the future.
+# Reason: PKI token format is no longer supported.
 #revocation_cache_time = 10
 
 # (Optional) If defined, indicate whether token data should be authenticated or
@@ -1455,19 +1524,40 @@
 # (string value)
 #enforce_token_bind = permissive
 
-# If true, the revocation list will be checked for cached tokens. This requires
-# that PKI tokens are configured on the identity server. (boolean value)
+# DEPRECATED: If true, the revocation list will be checked for cached tokens.
+# This requires that PKI tokens are configured on the identity server. (boolean
+# value)
+# This option is deprecated for removal since Ocata.
+# Its value may be silently ignored in the future.
+# Reason: PKI token format is no longer supported.
 #check_revocations_for_cached = false
 
-# Hash algorithms to use for hashing PKI tokens. This may be a single algorithm
-# or multiple. The algorithms are those supported by Python standard
-# hashlib.new(). The hashes will be tried in the order given, so put the
-# preferred one first for performance. The result of the first hash will be
+# DEPRECATED: Hash algorithms to use for hashing PKI tokens. This may be a
+# single algorithm or multiple. The algorithms are those supported by Python
+# standard hashlib.new(). The hashes will be tried in the order given, so put
+# the preferred one first for performance. The result of the first hash will be
 # stored in the cache. This will typically be set to multiple values only while
 # migrating from a less secure algorithm to a more secure one. Once all the old
 # tokens are expired this option should be set to a single value for better
 # performance. (list value)
+# This option is deprecated for removal since Ocata.
+# Its value may be silently ignored in the future.
+# Reason: PKI token format is no longer supported.
 #hash_algorithms = md5
+
+# A choice of roles that must be present in a service token. Service tokens are
+# allowed to request that an expired token can be used and so this check should
+# tightly control that only actual services should be sending this token. Roles
+# here are applied as an ANY check so any role in this list must be present.
+# For backwards compatibility reasons this currently only affects the
+# allow_expired check. (list value)
+#service_token_roles = service
+
+# For backwards compatibility reasons we must let valid service tokens pass
+# that don't pass the service_token_roles check as valid. Setting this true
+# will become the default in a future release and should be enabled if
+# possible. (boolean value)
+#service_token_roles_required = false
 
 # Authentication type to load (string value)
 # Deprecated group/name - [keystone_authtoken]/auth_plugin
@@ -1503,7 +1593,7 @@
 # Reason: Replaced by [DEFAULT]/transport_url
 #password =
 
-# DEPRECATED: List of Redis Sentinel hosts (fault tolerance mode) e.g.
+# DEPRECATED: List of Redis Sentinel hosts (fault tolerance mode), e.g.,
 # [host:port, host1:port ... ] (list value)
 # This option is deprecated for removal.
 # Its value may be silently ignored in the future.
@@ -1519,7 +1609,7 @@
 # Time in ms to wait before the transaction is killed. (integer value)
 #check_timeout = 20000
 
-# Timeout in ms on blocking socket operations (integer value)
+# Timeout in ms on blocking socket operations. (integer value)
 #socket_timeout = 10000
 
 
@@ -1531,55 +1621,72 @@
 
 # Name for the AMQP container. must be globally unique. Defaults to a generated
 # UUID (string value)
-# Deprecated group/name - [amqp1]/container_name
 #container_name = <None>
 
 # Timeout for inactive connections (in seconds) (integer value)
-# Deprecated group/name - [amqp1]/idle_timeout
 #idle_timeout = 0
 
 # Debug: dump AMQP frames to stdout (boolean value)
-# Deprecated group/name - [amqp1]/trace
 #trace = false
 
-# CA certificate PEM file to verify server certificate (string value)
-# Deprecated group/name - [amqp1]/ssl_ca_file
+# Attempt to connect via SSL. If no other ssl-related parameters are given, it
+# will use the system's CA-bundle to verify the server's certificate. (boolean
+# value)
+#ssl = false
+
+# CA certificate PEM file used to verify the server's certificate (string
+# value)
 #ssl_ca_file =
 
-# Identifying certificate PEM file to present to clients (string value)
-# Deprecated group/name - [amqp1]/ssl_cert_file
+# Self-identifying certificate PEM file for client authentication (string
+# value)
 #ssl_cert_file =
 
-# Private key PEM file used to sign cert_file certificate (string value)
-# Deprecated group/name - [amqp1]/ssl_key_file
+# Private key PEM file used to sign ssl_cert_file certificate (optional)
+# (string value)
 #ssl_key_file =
 
 # Password for decrypting ssl_key_file (if encrypted) (string value)
-# Deprecated group/name - [amqp1]/ssl_key_password
 #ssl_key_password = <None>
 
-# Accept clients using either SSL or plain TCP (boolean value)
-# Deprecated group/name - [amqp1]/allow_insecure_clients
+# By default SSL checks that the name in the server's certificate matches the
+# hostname in the transport_url. In some configurations it may be preferable to
+# use the virtual hostname instead, for example if the server uses the Server
+# Name Indication TLS extension (rfc6066) to provide a certificate per virtual
+# host. Set ssl_verify_vhost to True if the server's SSL certificate uses the
+# virtual host name instead of the DNS name. (boolean value)
+#ssl_verify_vhost = false
+
+# DEPRECATED: Accept clients using either SSL or plain TCP (boolean value)
+# This option is deprecated for removal.
+# Its value may be silently ignored in the future.
+# Reason: Not applicable - not a SSL server
 #allow_insecure_clients = false
 
 # Space separated list of acceptable SASL mechanisms (string value)
-# Deprecated group/name - [amqp1]/sasl_mechanisms
 #sasl_mechanisms =
 
 # Path to directory that contains the SASL configuration (string value)
-# Deprecated group/name - [amqp1]/sasl_config_dir
 #sasl_config_dir =
 
 # Name of configuration file (without .conf suffix) (string value)
-# Deprecated group/name - [amqp1]/sasl_config_name
 #sasl_config_name =
 
-# User name for message broker authentication (string value)
-# Deprecated group/name - [amqp1]/username
+# SASL realm to use if no realm present in username (string value)
+#sasl_default_realm =
+
+# DEPRECATED: User name for message broker authentication (string value)
+# This option is deprecated for removal.
+# Its value may be silently ignored in the future.
+# Reason: Should use configuration option transport_url to provide the
+# username.
 #username =
 
-# Password for message broker authentication (string value)
-# Deprecated group/name - [amqp1]/password
+# DEPRECATED: Password for message broker authentication (string value)
+# This option is deprecated for removal.
+# Its value may be silently ignored in the future.
+# Reason: Should use configuration option transport_url to provide the
+# password.
 #password =
 
 # Seconds to pause before attempting to re-connect. (integer value)
@@ -1601,8 +1708,12 @@
 # Minimum value: 1
 #link_retry_delay = 10
 
-# The deadline for an rpc reply message delivery. Only used when caller does
-# not provide a timeout expiry. (integer value)
+# The maximum number of attempts to re-send a reply message which failed due to
+# a recoverable error. (integer value)
+# Minimum value: -1
+#default_reply_retry = 0
+
+# The deadline for an rpc reply message delivery. (integer value)
 # Minimum value: 5
 #default_reply_timeout = 30
 
@@ -1616,6 +1727,11 @@
 # Minimum value: 5
 #default_notify_timeout = 30
 
+# The duration to schedule a purge of idle sender links. Detach link after
+# expiry. (integer value)
+# Minimum value: 1
+#default_sender_link_timeout = 600
+
 # Indicates the addressing mode used by the driver.
 # Permitted values:
 # 'legacy'   - use legacy non-routable addressing
@@ -1624,16 +1740,21 @@
 # otherwise use routable addressing (string value)
 #addressing_mode = dynamic
 
+# Enable virtual host support for those message buses that do not natively
+# support virtual hosting (such as qpidd). When set to true the virtual host
+# name will be added to all message bus addresses, effectively creating a
+# private 'subnet' per virtual host. Set to False if the message bus supports
+# virtual hosting using the 'hostname' field in the AMQP 1.0 Open performative
+# as the name of the virtual host. (boolean value)
+#pseudo_vhost = true
+
 # address prefix used when sending to a specific server (string value)
-# Deprecated group/name - [amqp1]/server_request_prefix
 #server_request_prefix = exclusive
 
 # address prefix used when broadcasting to all servers (string value)
-# Deprecated group/name - [amqp1]/broadcast_prefix
 #broadcast_prefix = broadcast
 
 # address prefix when sending to any server in group (string value)
-# Deprecated group/name - [amqp1]/group_request_prefix
 #group_request_prefix = unicast
 
 # Address prefix for all generated RPC addresses (string value)
@@ -1684,6 +1805,66 @@
 # Minimum value: 1
 #notify_server_credit = 100
 
+# Send messages of this type pre-settled.
+# Pre-settled messages will not receive acknowledgement
+# from the peer. Note well: pre-settled messages may be
+# silently discarded if the delivery fails.
+# Permitted values:
+# 'rpc-call' - send RPC Calls pre-settled
+# 'rpc-reply'- send RPC Replies pre-settled
+# 'rpc-cast' - Send RPC Casts pre-settled
+# 'notify'   - Send Notifications pre-settled
+#  (multi valued)
+#pre_settled = rpc-cast
+#pre_settled = rpc-reply
+
+
+[oslo_messaging_kafka]
+
+#
+# From oslo.messaging
+#
+
+# DEPRECATED: Default Kafka broker Host (string value)
+# This option is deprecated for removal.
+# Its value may be silently ignored in the future.
+# Reason: Replaced by [DEFAULT]/transport_url
+#kafka_default_host = localhost
+
+# DEPRECATED: Default Kafka broker Port (port value)
+# Minimum value: 0
+# Maximum value: 65535
+# This option is deprecated for removal.
+# Its value may be silently ignored in the future.
+# Reason: Replaced by [DEFAULT]/transport_url
+#kafka_default_port = 9092
+
+# Max fetch bytes of Kafka consumer (integer value)
+#kafka_max_fetch_bytes = 1048576
+
+# Default timeout(s) for Kafka consumers (floating point value)
+#kafka_consumer_timeout = 1.0
+
+# Pool Size for Kafka Consumers (integer value)
+#pool_size = 10
+
+# The pool size limit for connections expiration policy (integer value)
+#conn_pool_min_size = 2
+
+# The time-to-live in sec of idle connections in the pool (integer value)
+#conn_pool_ttl = 1200
+
+# Group id for Kafka consumer. Consumers in one group will coordinate message
+# consumption (string value)
+#consumer_group = oslo_messaging_consumer
+
+# Upper bound on the delay for KafkaProducer batching in seconds (floating
+# point value)
+#producer_batch_timeout = 0.0
+
+# Size of batch for the producer async send (integer value)
+#producer_batch_size = 16384
+
 
 [oslo_messaging_notifications]
 
@@ -1706,6 +1887,11 @@
 # Deprecated group/name - [DEFAULT]/notification_topics
 #topics = notifications
 
+# The maximum number of attempts to re-send a notification message which failed
+# to be delivered due to a recoverable error. 0 - No retry, -1 - indefinite
+# (integer value)
+#retry = -1
+
 
 [oslo_messaging_rabbit]
 
@@ -1719,30 +1905,31 @@
 #amqp_durable_queues = false
 
 # Auto-delete queues in AMQP. (boolean value)
-# Deprecated group/name - [DEFAULT]/amqp_auto_delete
 #amqp_auto_delete = false
+
+# Enable SSL (boolean value)
+#ssl = <None>
 
 # SSL version to use (valid only if SSL enabled). Valid values are TLSv1 and
 # SSLv23. SSLv2, SSLv3, TLSv1_1, and TLSv1_2 may be available on some
 # distributions. (string value)
-# Deprecated group/name - [DEFAULT]/kombu_ssl_version
-#kombu_ssl_version =
+# Deprecated group/name - [oslo_messaging_rabbit]/kombu_ssl_version
+#ssl_version =
 
 # SSL key file (valid only if SSL enabled). (string value)
-# Deprecated group/name - [DEFAULT]/kombu_ssl_keyfile
-#kombu_ssl_keyfile =
+# Deprecated group/name - [oslo_messaging_rabbit]/kombu_ssl_keyfile
+#ssl_key_file =
 
 # SSL cert file (valid only if SSL enabled). (string value)
-# Deprecated group/name - [DEFAULT]/kombu_ssl_certfile
-#kombu_ssl_certfile =
+# Deprecated group/name - [oslo_messaging_rabbit]/kombu_ssl_certfile
+#ssl_cert_file =
 
 # SSL certification authority file (valid only if SSL enabled). (string value)
-# Deprecated group/name - [DEFAULT]/kombu_ssl_ca_certs
-#kombu_ssl_ca_certs =
+# Deprecated group/name - [oslo_messaging_rabbit]/kombu_ssl_ca_certs
+#ssl_ca_file =
 
 # How long to wait before reconnecting in response to an AMQP consumer cancel
 # notification. (floating point value)
-# Deprecated group/name - [DEFAULT]/kombu_reconnect_delay
 #kombu_reconnect_delay = 1.0
 
 # EXPERIMENTAL: Possible values are: gzip, bz2. If not set compression will not
@@ -1762,7 +1949,6 @@
 
 # DEPRECATED: The RabbitMQ broker address where a single node is used. (string
 # value)
-# Deprecated group/name - [DEFAULT]/rabbit_host
 # This option is deprecated for removal.
 # Its value may be silently ignored in the future.
 # Reason: Replaced by [DEFAULT]/transport_url
@@ -1772,43 +1958,34 @@
 # value)
 # Minimum value: 0
 # Maximum value: 65535
-# Deprecated group/name - [DEFAULT]/rabbit_port
 # This option is deprecated for removal.
 # Its value may be silently ignored in the future.
 # Reason: Replaced by [DEFAULT]/transport_url
 #rabbit_port = 5672
 
 # DEPRECATED: RabbitMQ HA cluster host:port pairs. (list value)
-# Deprecated group/name - [DEFAULT]/rabbit_hosts
 # This option is deprecated for removal.
 # Its value may be silently ignored in the future.
 # Reason: Replaced by [DEFAULT]/transport_url
 #rabbit_hosts = $rabbit_host:$rabbit_port
 
-# Connect over SSL for RabbitMQ. (boolean value)
-# Deprecated group/name - [DEFAULT]/rabbit_use_ssl
-#rabbit_use_ssl = false
-
 # DEPRECATED: The RabbitMQ userid. (string value)
-# Deprecated group/name - [DEFAULT]/rabbit_userid
 # This option is deprecated for removal.
 # Its value may be silently ignored in the future.
 # Reason: Replaced by [DEFAULT]/transport_url
 #rabbit_userid = guest
 
 # DEPRECATED: The RabbitMQ password. (string value)
-# Deprecated group/name - [DEFAULT]/rabbit_password
 # This option is deprecated for removal.
 # Its value may be silently ignored in the future.
 # Reason: Replaced by [DEFAULT]/transport_url
 #rabbit_password = guest
 
 # The RabbitMQ login method. (string value)
-# Deprecated group/name - [DEFAULT]/rabbit_login_method
+# Allowed values: PLAIN, AMQPLAIN, RABBIT-CR-DEMO
 #rabbit_login_method = AMQPLAIN
 
 # DEPRECATED: The RabbitMQ virtual host. (string value)
-# Deprecated group/name - [DEFAULT]/rabbit_virtual_host
 # This option is deprecated for removal.
 # Its value may be silently ignored in the future.
 # Reason: Replaced by [DEFAULT]/transport_url
@@ -1819,7 +1996,6 @@
 
 # How long to backoff for between retries when connecting to RabbitMQ. (integer
 # value)
-# Deprecated group/name - [DEFAULT]/rabbit_retry_backoff
 #rabbit_retry_backoff = 2
 
 # Maximum interval of RabbitMQ connection retries. Default is 30 seconds.
@@ -1828,7 +2004,6 @@
 
 # DEPRECATED: Maximum number of RabbitMQ connection retries. Default is 0
 # (infinite retry count). (integer value)
-# Deprecated group/name - [DEFAULT]/rabbit_max_retries
 # This option is deprecated for removal.
 # Its value may be silently ignored in the future.
 #rabbit_max_retries = 0
@@ -1836,10 +2011,9 @@
 # Try to use HA queues in RabbitMQ (x-ha-policy: all). If you change this
 # option, you must wipe the RabbitMQ database. In RabbitMQ 3.0, queue mirroring
 # is no longer controlled by the x-ha-policy argument when declaring a queue.
-# If you just want to make sure that all queues (except  those with auto-
+# If you just want to make sure that all queues (except those with auto-
 # generated names) are mirrored across all nodes, run: "rabbitmqctl set_policy
 # HA '^(?!amq\.).*' '{"ha-mode": "all"}' " (boolean value)
-# Deprecated group/name - [DEFAULT]/rabbit_ha_queues
 #rabbit_ha_queues = false
 
 # Positive integer representing duration in seconds for queue TTL (x-expires).
@@ -1862,7 +2036,6 @@
 #heartbeat_rate = 2
 
 # Deprecated, use rpc_backend=kombu+memory or rpc_backend=fake (boolean value)
-# Deprecated group/name - [DEFAULT]/fake_rabbit
 #fake_rabbit = false
 
 # Maximum number of channels to allow (integer value)
@@ -1873,9 +2046,6 @@
 
 # How often to send heartbeats for consumer's connections (integer value)
 #heartbeat_interval = 3
-
-# Enable SSL (boolean value)
-#ssl = <None>
 
 # Arguments passed to ssl.wrap_socket (dict value)
 #ssl_options = <None>
@@ -1914,6 +2084,11 @@
 # in seconds or None for no staleness. Stale connections are closed on acquire.
 # (integer value)
 #pool_stale = 60
+
+# Default serialization mechanism for serializing/deserializing
+# outgoing/incoming messages (string value)
+# Allowed values: json, msgpack
+#default_serializer_type = json
 
 # Persist notification messages. (boolean value)
 #notification_persistence = false
@@ -1960,7 +2135,7 @@
 
 # Reconnecting retry count in case of connectivity problem during sending RPC
 # message, -1 means infinite retry. If actual retry attempts in not 0 the rpc
-# request could be processed more then one time (integer value)
+# request could be processed more than one time (integer value)
 #default_rpc_retry_attempts = -1
 
 # Reconnecting retry delay in case of connectivity problem during sending RPC
@@ -1976,91 +2151,142 @@
 
 # ZeroMQ bind address. Should be a wildcard (*), an ethernet interface, or IP.
 # The "host" option should point or resolve to this address. (string value)
-# Deprecated group/name - [DEFAULT]/rpc_zmq_bind_address
 #rpc_zmq_bind_address = *
 
 # MatchMaker driver. (string value)
-# Allowed values: redis, dummy
-# Deprecated group/name - [DEFAULT]/rpc_zmq_matchmaker
+# Allowed values: redis, sentinel, dummy
 #rpc_zmq_matchmaker = redis
 
 # Number of ZeroMQ contexts, defaults to 1. (integer value)
-# Deprecated group/name - [DEFAULT]/rpc_zmq_contexts
 #rpc_zmq_contexts = 1
 
 # Maximum number of ingress messages to locally buffer per topic. Default is
 # unlimited. (integer value)
-# Deprecated group/name - [DEFAULT]/rpc_zmq_topic_backlog
 #rpc_zmq_topic_backlog = <None>
 
 # Directory for holding IPC sockets. (string value)
-# Deprecated group/name - [DEFAULT]/rpc_zmq_ipc_dir
 #rpc_zmq_ipc_dir = /var/run/openstack
 
 # Name of this node. Must be a valid hostname, FQDN, or IP address. Must match
 # "host" option, if running Nova. (string value)
-# Deprecated group/name - [DEFAULT]/rpc_zmq_host
 #rpc_zmq_host = localhost
 
-# Seconds to wait before a cast expires (TTL). The default value of -1
-# specifies an infinite linger period. The value of 0 specifies no linger
-# period. Pending messages shall be discarded immediately when the socket is
-# closed. Only supported by impl_zmq. (integer value)
+# Number of seconds to wait before all pending messages will be sent after
+# closing a socket. The default value of -1 specifies an infinite linger
+# period. The value of 0 specifies no linger period. Pending messages shall be
+# discarded immediately when the socket is closed. Positive values specify an
+# upper bound for the linger period. (integer value)
 # Deprecated group/name - [DEFAULT]/rpc_cast_timeout
-#rpc_cast_timeout = -1
+#zmq_linger = -1
 
 # The default number of seconds that poll should wait. Poll raises timeout
 # exception when timeout expired. (integer value)
-# Deprecated group/name - [DEFAULT]/rpc_poll_timeout
 #rpc_poll_timeout = 1
 
 # Expiration timeout in seconds of a name service record about existing target
 # ( < 0 means no timeout). (integer value)
-# Deprecated group/name - [DEFAULT]/zmq_target_expire
 #zmq_target_expire = 300
 
 # Update period in seconds of a name service record about existing target.
 # (integer value)
-# Deprecated group/name - [DEFAULT]/zmq_target_update
 #zmq_target_update = 180
 
 # Use PUB/SUB pattern for fanout methods. PUB/SUB always uses proxy. (boolean
 # value)
-# Deprecated group/name - [DEFAULT]/use_pub_sub
-#use_pub_sub = true
+#use_pub_sub = false
 
 # Use ROUTER remote proxy. (boolean value)
-# Deprecated group/name - [DEFAULT]/use_router_proxy
-#use_router_proxy = true
+#use_router_proxy = false
+
+# This option makes direct connections dynamic or static. It makes sense only
+# with use_router_proxy=False which means to use direct connections for direct
+# message types (ignored otherwise). (boolean value)
+#use_dynamic_connections = false
+
+# How many additional connections to a host will be made for failover reasons.
+# This option is actual only in dynamic connections mode. (integer value)
+#zmq_failover_connections = 2
 
 # Minimal port number for random ports range. (port value)
 # Minimum value: 0
 # Maximum value: 65535
-# Deprecated group/name - [DEFAULT]/rpc_zmq_min_port
 #rpc_zmq_min_port = 49153
 
 # Maximal port number for random ports range. (integer value)
 # Minimum value: 1
 # Maximum value: 65536
-# Deprecated group/name - [DEFAULT]/rpc_zmq_max_port
 #rpc_zmq_max_port = 65536
 
 # Number of retries to find free port number before fail with ZMQBindError.
 # (integer value)
-# Deprecated group/name - [DEFAULT]/rpc_zmq_bind_port_retries
 #rpc_zmq_bind_port_retries = 100
 
 # Default serialization mechanism for serializing/deserializing
 # outgoing/incoming messages (string value)
 # Allowed values: json, msgpack
-# Deprecated group/name - [DEFAULT]/rpc_zmq_serialization
 #rpc_zmq_serialization = json
 
 # This option configures round-robin mode in zmq socket. True means not keeping
 # a queue when server side disconnects. False means to keep queue and messages
 # even if server is disconnected, when the server appears we send all
 # accumulated messages to it. (boolean value)
-#zmq_immediate = false
+#zmq_immediate = true
+
+# Enable/disable TCP keepalive (KA) mechanism. The default value of -1 (or any
+# other negative value) means to skip any overrides and leave it to OS default;
+# 0 and 1 (or any other positive value) mean to disable and enable the option
+# respectively. (integer value)
+#zmq_tcp_keepalive = -1
+
+# The duration between two keepalive transmissions in idle condition. The unit
+# is platform dependent, for example, seconds in Linux, milliseconds in Windows
+# etc. The default value of -1 (or any other negative value and 0) means to
+# skip any overrides and leave it to OS default. (integer value)
+#zmq_tcp_keepalive_idle = -1
+
+# The number of retransmissions to be carried out before declaring that remote
+# end is not available. The default value of -1 (or any other negative value
+# and 0) means to skip any overrides and leave it to OS default. (integer
+# value)
+#zmq_tcp_keepalive_cnt = -1
+
+# The duration between two successive keepalive retransmissions, if
+# acknowledgement to the previous keepalive transmission is not received. The
+# unit is platform dependent, for example, seconds in Linux, milliseconds in
+# Windows etc. The default value of -1 (or any other negative value and 0)
+# means to skip any overrides and leave it to OS default. (integer value)
+#zmq_tcp_keepalive_intvl = -1
+
+# Maximum number of (green) threads to work concurrently. (integer value)
+#rpc_thread_pool_size = 100
+
+# Expiration timeout in seconds of a sent/received message after which it is
+# not tracked anymore by a client/server. (integer value)
+#rpc_message_ttl = 300
+
+# Wait for message acknowledgements from receivers. This mechanism works only
+# via proxy without PUB/SUB. (boolean value)
+#rpc_use_acks = false
+
+# Number of seconds to wait for an ack from a cast/call. After each retry
+# attempt this timeout is multiplied by some specified multiplier. (integer
+# value)
+#rpc_ack_timeout_base = 15
+
+# Number to multiply base ack timeout by after each retry attempt. (integer
+# value)
+#rpc_ack_timeout_multiplier = 2
+
+# Default number of message sending attempts in case of any problems occurred:
+# positive value N means at most N retries, 0 means no retries, None or -1 (or
+# any other negative values) mean to retry forever. This option is used only if
+# acknowledgments are enabled. (integer value)
+#rpc_retry_attempts = 3
+
+# List of publisher hosts SubConsumer can subscribe on. This option has higher
+# priority then the default publishers list taken from the matchmaker. (list
+# value)
+#subscribe_on =
 
 
 [oslo_middleware]
@@ -2092,12 +2318,10 @@
 # From oslo.policy
 #
 
-# The JSON file that defines policies. (string value)
-# Deprecated group/name - [DEFAULT]/policy_file
+# The file that defines policies. (string value)
 #policy_file = policy.json
 
 # Default rule. Enforced when a requested rule is not found. (string value)
-# Deprecated group/name - [DEFAULT]/policy_default_rule
 #policy_default_rule = default
 
 # Directories where policy configuration files are stored. They can be relative
@@ -2105,7 +2329,6 @@
 # absolute paths. The file defined by policy_file must exist for these
 # directories to be searched.  Missing or empty directories are ignored. (multi
 # valued)
-# Deprecated group/name - [DEFAULT]/policy_dirs
 #policy_dirs = policy.d
 
 
@@ -2181,8 +2404,43 @@
 # Examples of possible values:
 #
 # * messaging://: use oslo_messaging driver for sending notifications.
+# * mongodb://127.0.0.1:27017 : use mongodb driver for sending notifications.
+# * elasticsearch://127.0.0.1:9200 : use elasticsearch driver for sending
+# notifications.
 #  (string value)
 #connection_string = messaging://
+
+#
+# Document type for notification indexing in elasticsearch.
+#  (string value)
+#es_doc_type = notification
+
+#
+# This parameter is a time value parameter (for example: es_scroll_time=2m),
+# indicating for how long the nodes that participate in the search will
+# maintain
+# relevant resources in order to continue and support it.
+#  (string value)
+#es_scroll_time = 2m
+
+#
+# Elasticsearch splits large requests in batches. This parameter defines
+# maximum size of each batch (for example: es_scroll_size=10000).
+#  (integer value)
+#es_scroll_size = 10000
+
+#
+# Redissentinel provides a timeout option on the connections.
+# This parameter defines that timeout (for example: socket_timeout=0.1).
+#  (floating point value)
+#socket_timeout = 0.1
+
+#
+# Redissentinel uses a service name to identify a master redis service.
+# This parameter defines the name (for example:
+# sentinal_service_name=mymaster).
+#  (string value)
+#sentinel_service_name = mymaster
 
 
 [revision]
@@ -2248,11 +2506,11 @@
 #domain_name = <None>
 
 # Project ID to scope to (string value)
-# Deprecated group/name - [trustee]/tenant-id
+# Deprecated group/name - [trustee]/tenant_id
 #project_id = <None>
 
 # Project name to scope to (string value)
-# Deprecated group/name - [trustee]/tenant-name
+# Deprecated group/name - [trustee]/tenant_name
 #project_name = <None>
 
 # Domain ID containing project (string value)
@@ -2278,7 +2536,7 @@
 #user_id = <None>
 
 # Username (string value)
-# Deprecated group/name - [trustee]/user-name
+# Deprecated group/name - [trustee]/user_name
 #username = <None>
 
 # User's domain id (string value)
