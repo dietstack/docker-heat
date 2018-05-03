@@ -106,15 +106,40 @@ if [ $ret -ne 0 ]; then
 fi
 
 # bootstrap openstack keystone
+set +e
 
-docker run --rm --net=host $http_proxy_args \
-                           ${DOCKER_PROJ_NAME}osadmin /bin/bash -c ". /app/tokenrc; \
-                                                 bash -x /app/bootstrap.sh"
+echo "Bootstrapping keystone"
+docker run --rm --net=host -e DEBUG="true" --name bootstrap_keystone \
+           ${DOCKER_PROJ_NAME}keystone:latest \
+           bash -c "keystone-manage bootstrap --bootstrap-password veryS3cr3t \
+                   --bootstrap-username admin \
+                   --bootstrap-project-name admin \
+                   --bootstrap-role-name admin \
+                   --bootstrap-service-name keystone \
+                   --bootstrap-region-id RegionOne \
+                   --bootstrap-admin-url http://127.0.0.1:35357 \
+                   --bootstrap-public-url http://127.0.0.1:5000 \
+                   --bootstrap-internal-url http://127.0.0.1:5000 "
+
+ret=$?
+if [ $ret -ne 0 ]; then
+    echo "Bootstrapping error!"
+    exit $ret
+fi
+
+docker run --net=host --rm $http_proxy_args ${DOCKER_PROJ_NAME}osadmin:latest \
+           /bin/bash -c ". /app/adminrc; bash -x /app/bootstrap.sh"
+ret=$?
+if [ $ret -ne 0 ] && [ $ret -ne 128 ]; then
+    echo "Error: Keystone bootstrap error ${ret}!"
+    exit $ret
+fi
+set -e
+
 
 echo "Testing whether openstack stack list is successful..."
-docker run --rm --net=host $http_proxy_args \
-                           ${DOCKER_PROJ_NAME}osadmin /bin/bash -c ". /app/adminrc; \
-                                                 openstack stack list"
+docker run --rm --net=host ${DOCKER_PROJ_NAME}osadmin /bin/bash -c ". /app/adminrc; \
+                                                                    openstack stack list"
 
 echo "Return code $?"
 
